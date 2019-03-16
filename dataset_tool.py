@@ -454,6 +454,8 @@ def create_celeba(tfrecord_dir, celeba_dir, cx=89, cy=121):
 def create_celebahq(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num_tasks=100):
     print('Loading CelebA from "%s"' % celeba_dir)
     expected_images = 202599
+    print(os.path.join(celeba_dir, 'img_celeba', '*.jpg'))
+    print(len(glob.glob(os.path.join(celeba_dir, 'img_celeba', '*.jpg'))))
     if len(glob.glob(os.path.join(celeba_dir, 'img_celeba', '*.jpg'))) != expected_images:
         error('Expected to find %d images' % expected_images)
     with open(os.path.join(celeba_dir, 'Anno', 'list_landmarks_celeba.txt'), 'rt') as file:
@@ -587,11 +589,15 @@ def create_celebahq(tfrecord_dir, celeba_dir, delta_dir, num_threads=4, num_task
         assert md5.hexdigest() == fields['final_md5'][idx]
         return img
 
+    i = 1
     with TFRecordExporter(tfrecord_dir, indices.size) as tfr:
         order = tfr.choose_shuffled_order()
         with ThreadPool(num_threads) as pool:
             for img in pool.process_items_concurrently(indices[order].tolist(), process_func=process_func, max_items_in_flight=num_tasks):
-                tfr.add_image(img)
+                img = img.transpose(1,2,0)
+                img = PIL.Image.fromarray(img)#.astype('uint8'))
+                img.save("/storage/celba-hq_jpg/img-%s.jpg" % str(i).zfill(9))
+                i+=1
 
 #----------------------------------------------------------------------------
 
@@ -712,7 +718,7 @@ def execute_cmdline(argv):
     p.add_argument(     'tfrecord_dir',     help='New dataset directory to be created')
     p.add_argument(     'celeba_dir',       help='Directory containing CelebA')
     p.add_argument(     'delta_dir',        help='Directory containing CelebA-HQ deltas')
-    p.add_argument(     '--num_threads',    help='Number of concurrent threads (default: 4)', type=int, default=4)
+    p.add_argument(     '--num_threads',    help='Number of concurrent threads (default: 4)', type=int, default=8)
     p.add_argument(     '--num_tasks',      help='Number of concurrent processing tasks (default: 100)', type=int, default=100)
 
     p = add_command(    'create_from_images', 'Create dataset from a directory full of images.',
